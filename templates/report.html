@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forensic Case Report | {{ job.case_number }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    @media print {
+      .header, .action-toolbar, .search-bar, .no-print { display: none !important; }
+      body { background: #ffffff; color: #000000; font-size: 11pt; }
+      .card { border: 1px solid #cccccc; box-shadow: none; page-break-inside: avoid; }
+      .main-container { max-width: 100%; margin: 0; padding: 0; }
+    }
+    .action-toolbar {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .search-input {
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      width: 250px;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <span class="logo-badge">DFA-14</span>
+        <div>
+          <div class="site-title">Digital Forensics Analyzer</div>
+          <div class="site-subtitle">Official Case Report &bull; {{ job.case_number }}</div>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-link">New Intake</a>
+        <a href="/job/{{ job.job_id }}" class="nav-link">Job Status</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Action Toolbar -->
+    <div class="action-toolbar">
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <span class="badge badge-info" style="font-size: 0.85rem;">{{ job.case_number }}</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Lead Examiner: <strong>{{ job.examiner }}</strong></span>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <a href="/job/{{ job.job_id }}/download/pdf" class="btn btn-success" style="padding: 0.45rem 0.9rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export PDF
+        </a>
+        <a href="/job/{{ job.job_id }}/download/package" class="btn btn-secondary" style="padding: 0.45rem 0.9rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          Download Package (ZIP)
+        </a>
+        <a href="/job/{{ job.job_id }}/download/timeline" class="btn btn-outline" style="padding: 0.45rem 0.9rem;">
+          Timeline CSV
+        </a>
+        <button onclick="window.print()" class="btn btn-outline" style="padding: 0.45rem 0.9rem;">
+          Print
+        </button>
+      </div>
+    </div>
+
+    <!-- Executive Summary Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Forensic Examination Executive Summary
+        </div>
+        <span class="badge badge-success" style="font-size: 0.85rem;">INTEGRITY: {{ job.integrity.status }}</span>
+      </div>
+
+      <div class="grid-2" style="font-size: 0.88rem; margin-bottom: 1rem;">
+        <div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted); width: 140px;">Case Number:</td><td><strong>{{ job.case_number }}</strong></td></tr>
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted);">Lead Examiner:</td><td><strong>{{ job.examiner }}</strong></td></tr>
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted);">Acquisition Date:</td><td>{{ job.intake.intake_time_utc }}</td></tr>
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted);">Evidence File:</td><td><code>{{ job.intake.filename }}</code> ({{ job.intake.filesize_str }})</td></tr>
+          </table>
+        </div>
+        <div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted); width: 140px;">Primary Engine:</td><td><span class="badge badge-info">{{ job.engine_mode }}</span></td></tr>
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted);">Partitions Found:</td><td>{{ job.partitions|length }} Volume(s)</td></tr>
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted);">Deleted Inodes:</td><td><strong>{{ job.deleted_files|length }}</strong> flagged entries</td></tr>
+            <tr><td style="padding: 0.3rem 0; color: var(--text-muted);">Recovered Files:</td><td><strong>{{ job.recovered_files|length }}</strong> files recovered/extracted</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Integrity Result Alert Box -->
+      <div class="alert {% if job.integrity.status == 'PASS' %}alert-success{% else %}alert-danger{% endif %}">
+        <div>
+          <strong>Cryptographic Audit Result: {{ job.integrity.status }}</strong>
+          <p style="margin-top: 0.2rem;">{{ job.integrity.message }}</p>
+          <div style="font-family: monospace; font-size: 0.8rem; margin-top: 0.4rem;">
+            Acquisition Baseline: {{ job.integrity.initial_sha256 }}<br>
+            Post-Analysis Original: {{ job.integrity.final_original_sha256 }} [Unaltered: {{ job.integrity.original_unaltered }}]<br>
+            Post-Analysis Working:  {{ job.integrity.final_working_sha256 }} [Unaltered: {{ job.integrity.working_unaltered }}]
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Chain of Custody & Verification -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">1. Chain of Custody & Evidence Verification Log</div>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Complete chain of custody record automatically documented modeled on ISO/IEC 27037 principles:
+      </p>
+      <pre class="code-block">{{ custody_log }}</pre>
+    </div>
+
+    <!-- Section 2: Partition & Filesystem Architecture -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">2. Partition Layout & Filesystem Architecture (mmls & fsstat)</div>
+      </div>
+      
+      <div class="table-container" style="margin-bottom: 1.25rem;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Slot</th>
+              <th>Start Sector</th>
+              <th>End Sector</th>
+              <th>Length</th>
+              <th>Size</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for part in job.partitions %}
+            <tr>
+              <td><code>{{ part.slot }}</code></td>
+              <td>{{ part.start_sector }}</td>
+              <td>{{ part.end_sector }}</td>
+              <td>{{ part.length_sectors }} sectors</td>
+              <td>{{ part.size_bytes // 1024 // 1024 }} MB</td>
+              <td><strong>{{ part.description }}</strong></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--secondary);">Filesystem Metadata Summary</h4>
+      <div class="grid-2">
+        {% for fs in job.filesystems %}
+        <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.85rem; border-radius: 6px;">
+          <div style="font-weight: 700; color: var(--primary); margin-bottom: 0.35rem;">
+            Offset: {{ fs.offset if fs.offset else '0 (Direct Volume)' }} &bull; {{ fs.fs_type }}
+          </div>
+          <table style="width: 100%; font-size: 0.82rem;">
+            <tr><td style="color: var(--text-muted);">Volume Name:</td><td>{{ fs.volume_name }}</td></tr>
+            <tr><td style="color: var(--text-muted);">Serial Number:</td><td><code>{{ fs.volume_serial }}</code></td></tr>
+            <tr><td style="color: var(--text-muted);">Cluster/Block Size:</td><td>{{ fs.block_size }}</td></tr>
+            <tr><td style="color: var(--text-muted);">Root Directory:</td><td>{{ fs.root_directory }}</td></tr>
+          </table>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Section 3: Deleted Files Table -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          3. Deleted File System Entries (TSK fls -r)
+          <span class="badge badge-warning" style="margin-left: 0.5rem;">{{ job.deleted_files|length }} Entries</span>
+        </div>
+        <input type="text" id="deletedSearch" class="search-input" placeholder="Search deleted files...">
+      </div>
+
+      <div class="table-container">
+        <table class="table" id="deletedTable">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Inode</th>
+              <th>Type</th>
+              <th>Partition</th>
+              <th>Path / Filename</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in job.deleted_files[:600] %}
+            <tr>
+              <td><span class="badge badge-danger">DELETED (*)</span></td>
+              <td><code>{{ item.inode }}</code></td>
+              <td>{{ item.type }}</td>
+              <td>Offset {{ item.partition_offset if item.partition_offset else '0' }}</td>
+              <td><strong>{{ item.name }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No deleted file entries recorded by fls.</td></tr>
+            {% endfor %}
+            {% if job.deleted_files|length > 600 %}
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 0.75rem; background: #f8fafc;">
+              <i>Displaying top 600 deleted records out of {{ job.deleted_files|length }} total. Complete list preserved in file_listing.json and Case Package ZIP.</i>
+            </td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 4: Recovered Files & Type Mismatch Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          4. Recovered Files & Anti-Forensics Deception Analysis
+          <span class="badge badge-success" style="margin-left: 0.5rem;">{{ job.recovered_files|length }} Files</span>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <select id="mismatchFilter" class="search-input" style="width: 170px;">
+            <option value="all">All Recovered Files</option>
+            <option value="mismatches_only">Disguised Files Only</option>
+          </select>
+          <input type="text" id="recoveredSearch" class="search-input" placeholder="Filter recovered files...">
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        <div>
+          <strong>Deception Detection:</strong>
+          Every recovered file was verified by inspection of its magic byte header. Files disguised by renaming (e.g. sensitive documents or executables masquerading under harmless extensions) are highlighted with alert flags.
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="table" id="recoveredTable">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Size</th>
+              <th>Detected Real Type</th>
+              <th>Extension Flag</th>
+              <th>SHA-256 Digest</th>
+              <th>Forensic Status Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rf in job.recovered_files[:600] %}
+            <tr data-mismatch="{{ 'true' if rf.extension_mismatch else 'false' }}">
+              <td><strong>{{ rf.filename }}</strong></td>
+              <td>{{ rf.size_str }}</td>
+              <td>{{ rf.magic_desc }}</td>
+              <td>
+                {% if rf.extension_mismatch %}
+                  <span class="badge badge-danger">MISMATCH (RENAMED)</span>
+                  <div style="font-size: 0.72rem; color: #b91c1c; margin-top: 0.2rem;">{{ rf.mismatch_details }}</div>
+                {% else %}
+                  <span class="badge badge-secondary">MATCH</span>
+                {% endif %}
+              </td>
+              <td><code style="font-size: 0.75rem;">{{ rf.sha256[:16] }}...{{ rf.sha256[-8:] }}</code></td>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">{{ rf.status_note }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No recovered files found.</td></tr>
+            {% endfor %}
+            {% if job.recovered_files|length > 600 %}
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 0.75rem; background: #f8fafc;">
+              <i>Displaying top 600 files out of {{ job.recovered_files|length }} total recovered items. Full archive preserved in recovered_files.json and Case Package ZIP.</i>
+            </td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 5: MACB Activity Timeline & Chart -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          5. MACB Activity Timeline & Temporal Analysis (mactime)
+          <span class="badge badge-info" style="margin-left: 0.5rem;">{{ job.timeline.total_events }} Events</span>
+        </div>
+        <input type="text" id="timelineSearch" class="search-input" placeholder="Filter timeline...">
+      </div>
+
+      <!-- Activity Chart -->
+      <div style="margin-bottom: 1.5rem; height: 260px;">
+        <canvas id="timelineChart"></canvas>
+      </div>
+
+      <div class="table-container" style="max-height: 450px; overflow-y: auto;">
+        <table class="table" id="timelineTable">
+          <thead>
+            <tr>
+              <th>Date / Time (UTC)</th>
+              <th>Activity (MACB)</th>
+              <th>Size</th>
+              <th>Inode</th>
+              <th>Permissions</th>
+              <th>File Name / Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ev in job.timeline.events %}
+            <tr>
+              <td><code>{{ ev.datetime }}</code></td>
+              <td>
+                <span class="badge badge-secondary" style="font-family: monospace; letter-spacing: 1px;">{{ ev.type }}</span>
+              </td>
+              <td>{{ ev.size }} B</td>
+              <td><code>{{ ev.meta }}</code></td>
+              <td style="font-family: monospace; font-size: 0.8rem;">{{ ev.mode }}</td>
+              <td><strong>{{ ev.filename }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No timeline events recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 6: Keyword Content Search Hits -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          6. Forensic Keyword Content Discovery
+          <span class="badge badge-warning" style="margin-left: 0.5rem;">{{ job.keywords.total_hits }} Total Hits</span>
+        </div>
+      </div>
+
+      <div style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+        <strong>Search Terms:</strong>
+        {% for kw in job.keywords.keywords_searched %}
+          <span class="badge badge-info" style="margin-right: 0.25rem;">{{ kw }}</span>
+        {% endfor %}
+        &bull; <strong>Recovered Files Hits:</strong> {{ job.keywords.recovered_files_hits_count }}
+        &bull; <strong>Raw Disk Hits:</strong> {{ job.keywords.raw_image_hits_count }}
+      </div>
+
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Term</th>
+              <th>Target Source</th>
+              <th>Byte Offset</th>
+              <th>Sector</th>
+              <th>Preview Snippet</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for hit in job.keywords.hits[:100] %}
+            <tr>
+              <td><span class="badge badge-warning">{{ hit.keyword }}</span></td>
+              <td><strong>{{ hit.target }}</strong> ({{ hit.source }})</td>
+              <td><code>{{ hit.offset_hex }}</code> ({{ hit.offset_dec }})</td>
+              <td>{{ hit.sector }}</td>
+              <td style="font-family: monospace; font-size: 0.8rem; background: #fafafa;">{{ hit.context }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No keyword occurrences discovered.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 7: Forensic Limitations & Examiner Notes -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">7. Forensic Methodology, Limitations & Evidence Custody Audit</div>
+      </div>
+      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text);">
+        <p><strong>1. Evidence Integrity & Read-Only Protection:</strong> Evidence intake enforced read-only protection (software attribute; a hardware or driver-level write blocker would be used on real evidence) at acquisition. The working copy SHA-256 hash was confirmed identical to the original image baseline prior to analysis. Post-analysis re-hashing confirmed zero byte alteration (Result: <strong>{{ job.integrity.status }}</strong>).</p>
+        <p style="margin-top: 0.5rem;"><strong>2. Normal Forensic File Recovery Limitations:</strong> Partial, zero-filled, or truncated files represent physical filesystem state (e.g. unallocated cluster overwrites or reallocations) rather than extraction errors. Recoverable file fragments were verified against standard magic byte headers.</p>
+        <p style="margin-top: 0.5rem;"><strong>3. Deception Detection:</strong> Disguised extensions were unmasked through binary header inspection. Such anomalies are noted as potential anti-forensic concealment techniques.</p>
+        <p style="margin-top: 0.5rem;"><strong>4. Tooling & Engine Attribution:</strong> Analysis executed using <strong>{{ job.engine_mode }}</strong>. The complete case archive includes raw logs, CSV timelines, JSON enumerations, and recovered files.</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Timeline Activity Chart (Chart.js)
+    const chartData = {{ job.timeline.chart_data|tojson }};
+    const ctx = document.getElementById('timelineChart');
+    if (ctx && chartData.labels && chartData.labels.length > 0) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: chartData.labels,
+          datasets: [{
+            label: 'Forensic Metadata Events Over Time',
+            data: chartData.counts,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            fill: true,
+            tension: 0.2,
+            borderWidth: 2,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
+            x: { grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'top' }
+          }
+        }
+      });
+    }
+
+    // Filter Deleted Files Table
+    const deletedSearch = document.getElementById('deletedSearch');
+    if (deletedSearch) {
+      deletedSearch.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('#deletedTable tbody tr').forEach(row => {
+          row.style.display = row.innerText.toLowerCase().includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    // Filter Recovered Files Table & Mismatches
+    const recoveredSearch = document.getElementById('recoveredSearch');
+    const mismatchFilter = document.getElementById('mismatchFilter');
+
+    function filterRecovered() {
+      const query = recoveredSearch.value.toLowerCase();
+      const onlyMismatches = mismatchFilter.value === 'mismatches_only';
+
+      document.querySelectorAll('#recoveredTable tbody tr').forEach(row => {
+        const textMatch = row.innerText.toLowerCase().includes(query);
+        const isMismatch = row.getAttribute('data-mismatch') === 'true';
+        if (textMatch && (!onlyMismatches || isMismatch)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    if (recoveredSearch) recoveredSearch.addEventListener('input', filterRecovered);
+    if (mismatchFilter) mismatchFilter.addEventListener('change', filterRecovered);
+
+    // Filter Timeline Table
+    const timelineSearch = document.getElementById('timelineSearch');
+    if (timelineSearch) {
+      timelineSearch.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('#timelineTable tbody tr').forEach(row => {
+          row.style.display = row.innerText.toLowerCase().includes(query) ? '' : 'none';
+        });
+      });
+    }
+  </script>
+</body>
+</html>

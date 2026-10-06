@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analysis Job Status | CASE-TEST-014</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <span class="logo-badge">DFA-14</span>
+        <div>
+          <div class="site-title">Digital Forensics Analyzer</div>
+          <div class="site-subtitle">Live Analysis Pipeline &bull; CASE-TEST-014</div>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-link">New Intake</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Case Overview Header -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Active Job: {{ job_id }}
+        </div>
+        <span id="jobBadge" class="badge badge-info">PROCESSING</span>
+      </div>
+
+      <div class="grid-3" style="font-size: 0.85rem;">
+        <div><strong>Case:</strong> <span id="caseNum">{{ job.case_number }}</span></div>
+        <div><strong>Lead Examiner:</strong> <span id="examinerName">{{ job.examiner }}</span></div>
+        <div><strong>Evidence:</strong> <span id="evidenceFile">{{ job.filename }}</span></div>
+      </div>
+    </div>
+
+    <!-- Completion / Action Banner (Hidden initially) -->
+    <div id="completionBanner" class="alert alert-success" style="display: none; flex-direction: column; gap: 0.75rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div>
+          <strong style="font-size: 1rem;">Forensic Pipeline Completed Successfully!</strong>
+          <p style="margin-top: 0.25rem;">Cryptographic integrity verified. All deliverables, timelines, and recovered artifacts are compiled.</p>
+        </div>
+        <span class="badge badge-success" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">INTEGRITY: PASS</span>
+      </div>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;">
+        <a id="btnViewReport" href="/job/{{ job_id }}/report" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          View Interactive Report
+        </a>
+        <a id="btnDownloadPdf" href="/job/{{ job_id }}/download/pdf" class="btn btn-success">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PDF Report
+        </a>
+        <a id="btnDownloadZip" href="/job/{{ job_id }}/download/package" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          Download Case Package (ZIP)
+        </a>
+        <a id="btnDownloadCsv" href="/job/{{ job_id }}/download/timeline" class="btn btn-outline">
+          Download Timeline CSV
+        </a>
+      </div>
+    </div>
+
+    <!-- Pipeline Steps Progress Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Automated Analysis Pipeline (9 Forensic Phases)</div>
+        <div id="progressText" style="font-size: 0.85rem; font-weight: 600; color: var(--accent);">0% Complete</div>
+      </div>
+
+      <div class="step-list" id="stepList">
+        <!-- Step 1 -->
+        <div class="step-item pending" id="step_intake">
+          <div class="step-left">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-name">Intake & Read-Only Protection (Software Attribute)</div>
+              <div class="step-desc">Save evidence to original/, mark read-only, compute acquisition SHA-256, create working copy.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-item pending" id="step_custody">
+          <div class="step-left">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-name">Chain of Custody & Action Logging</div>
+              <div class="step-desc">Establish CASE-TEST-014 custody log with UTC timestamps and forensic audit trail.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-item pending" id="step_partition">
+          <div class="step-left">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-name">Partition & Filesystem Architecture</div>
+              <div class="step-desc">Execute mmls to identify volume offsets; inspect file systems with fsstat.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step-item pending" id="step_listing">
+          <div class="step-left">
+            <div class="step-num">4</div>
+            <div>
+              <div class="step-name">File System Inode Enumeration (fls)</div>
+              <div class="step-desc">Recursive fls -r traversal; flag deleted directory entries marked with '*'.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="step-item pending" id="step_recovery">
+          <div class="step-left">
+            <div class="step-num">5</div>
+            <div>
+              <div class="step-name">Deleted File Recovery & Magic Byte Analysis</div>
+              <div class="step-desc">Recover files with icat & tsk_recover; hash recovered files; detect extension deception.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="step-item pending" id="step_timeline">
+          <div class="step-left">
+            <div class="step-num">6</div>
+            <div>
+              <div class="step-name">MACB Activity Timeline Compilation</div>
+              <div class="step-desc">Compile fls bodyfile; run mactime to build filterable timestamp CSV and activity charts.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 7 -->
+        <div class="step-item pending" id="step_keywords">
+          <div class="step-left">
+            <div class="step-num">7</div>
+            <div>
+              <div class="step-name">Forensic Keyword Search</div>
+              <div class="step-desc">Scan recovered files and raw image sectors for target strings with byte offsets.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 8 -->
+        <div class="step-item pending" id="step_integrity">
+          <div class="step-left">
+            <div class="step-num">8</div>
+            <div>
+              <div class="step-name">Post-Analysis Integrity Verification</div>
+              <div class="step-desc">Re-hash original and working copies; confirm zero contamination (PASS / FAIL).</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+
+        <!-- Step 9 -->
+        <div class="step-item pending" id="step_report">
+          <div class="step-left">
+            <div class="step-num">9</div>
+            <div>
+              <div class="step-name">Report Compilation & Case Packaging</div>
+              <div class="step-desc">Generate HTML report, ReportLab PDF, and bundle full case archive ZIP.</div>
+            </div>
+          </div>
+          <span class="step-status badge badge-secondary">Pending</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Execution Console Log -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Live Forensic Action Log (actions_log.txt)</div>
+        <span class="badge badge-secondary" id="logLineCount">0 lines</span>
+      </div>
+      <pre class="code-block" id="actionLog" style="height: 220px; overflow-y: auto;">Connecting to live forensic logger...</pre>
+    </div>
+  </main>
+
+  <script>
+    const jobId = "{{ job_id }}";
+    const statusEndpoint = `/api/job/${jobId}/status`;
+    let isFinished = false;
+
+    const stepOrder = [
+      "intake", "custody", "partition", "listing", 
+      "recovery", "timeline", "keywords", "integrity", "report"
+    ];
+
+    async function pollStatus() {
+      if (isFinished) return;
+
+      try {
+        const res = await fetch(statusEndpoint);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update Steps
+        let completedSteps = 0;
+        const stepsMap = data.steps || {};
+
+        stepOrder.forEach(sName => {
+          const el = document.getElementById(`step_${sName}`);
+          if (!el) return;
+          const status = stepsMap[sName] || "pending";
+          const badge = el.querySelector('.step-status');
+
+          el.className = `step-item ${status}`;
+          badge.textContent = status.toUpperCase();
+
+          if (status === "done") {
+            badge.className = "step-status badge badge-success";
+            completedSteps++;
+          } else if (status === "running") {
+            badge.className = "step-status badge badge-info";
+          } else if (status === "failed") {
+            badge.className = "step-status badge badge-danger";
+          } else {
+            badge.className = "step-status badge badge-secondary";
+          }
+        });
+
+        // Update overall progress
+        const percent = Math.round((completedSteps / stepOrder.length) * 100);
+        document.getElementById('progressText').textContent = `${percent}% Complete`;
+
+        // Update Action Log Console
+        if (data.action_log) {
+          const logEl = document.getElementById('actionLog');
+          logEl.textContent = data.action_log;
+          logEl.scrollTop = logEl.scrollHeight;
+          const lineCount = data.action_log.split('\n').filter(l => l.trim()).length;
+          document.getElementById('logLineCount').textContent = `${lineCount} events`;
+        }
+
+        // Check if finished
+        if (data.status === "completed") {
+          isFinished = true;
+          document.getElementById('jobBadge').className = "badge badge-success";
+          document.getElementById('jobBadge').textContent = "COMPLETED";
+          document.getElementById('completionBanner').style.display = "flex";
+        } else if (data.status === "failed") {
+          isFinished = true;
+          document.getElementById('jobBadge').className = "badge badge-danger";
+          document.getElementById('jobBadge').textContent = "FAILED";
+          alert("Pipeline failed: " + (data.error || "Unknown error"));
+        }
+
+      } catch (err) {
+        console.error("Status polling error:", err);
+      }
+
+      if (!isFinished) {
+        setTimeout(pollStatus, 1500);
+      }
+    }
+
+    // Begin polling
+    pollStatus();
+  </script>
+</body>
+</html>

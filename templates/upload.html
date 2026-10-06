@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Forensics Analyzer | BCSSL Lab 14</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <span class="logo-badge">DFA-14</span>
+        <div>
+          <div class="site-title">Digital Forensics Analyzer</div>
+          <div class="site-subtitle">Automated Evidence Pipeline &bull; BCSSL Lab 14</div>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-link">New Intake</a>
+        <a href="#about" class="nav-link">Case Spec</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Windows Defender & Safety Notice -->
+    <div class="alert alert-warning">
+      <div>
+        <strong>Forensic Safety & Security Advisory:</strong>
+        <p>This automated engine never opens or executes recovered files. All extracted artifacts are stored in restricted non-executable directories. If test images contain suspicious strings or dummy exploits, your antivirus (e.g., Windows Defender) may quarantine them. It is recommended to add a folder exclusion for <code>D:\PROJECTS\ForensicsAnalyzer\jobs</code> during lab operations.</p>
+      </div>
+    </div>
+
+    <!-- Intake Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Forensic Evidence Image Intake
+        </div>
+        <span class="badge badge-info">CASE-TEST-014</span>
+      </div>
+
+      <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="case_number">Case Number</label>
+            <input type="text" id="case_number" name="case_number" class="form-control" value="CASE-TEST-014" required>
+            <div class="form-hint">Official lab reference identifier</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="examiner">Lead Examiner Name</label>
+            <input type="text" id="examiner" name="examiner" class="form-control" value="Digital Forensics Examiner" required>
+            <div class="form-hint">Recorded in the official Chain of Custody</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Forensic Disk Image File</label>
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">💽</div>
+            <div class="dropzone-text" id="dropzoneText">Drag and drop disk image here or click to browse</div>
+            <div class="dropzone-subtext">Supported bitstream formats: .dd, .img, .raw, .001, .E01 (Up to 10 GB)</div>
+            <input type="file" id="evidence_file" name="evidence_file" style="display: none;" accept=".dd,.img,.raw,.001,.e01,.E01" required>
+          </div>
+          <div id="fileInfo" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--primary); display: none;"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="keywords">Target Keyword List (Optional)</label>
+          <input type="text" id="keywords" name="keywords" class="form-control" placeholder="secret, password, confidential, flag, admin, CASE-TEST-014">
+          <div class="form-hint">Comma or semicolon separated search queries to scan across recovered files and raw disk sectors</div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            Start Automated Forensic Analysis
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Lab 14 Architecture Overview -->
+    <div class="card" id="about">
+      <div class="card-header">
+        <div class="card-title">Automated Analysis Architecture</div>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        This tool is modeled on ISO/IEC 27037 principles for digital evidence handling:
+      </p>
+      <div class="grid-3">
+        <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
+          <strong style="color: var(--primary);">1. Evidence Intake & Verification</strong>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+            Evidence is preserved as strictly read-only. SHA-256 is computed at acquisition. A bit-for-bit working copy is verified, ensuring 100% unaltered original integrity.
+          </p>
+        </div>
+        <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
+          <strong style="color: var(--primary);">2. Automated Deep Ingest</strong>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+            The engine analyzes partition tables (mmls), inspects filesystems (fsstat), lists deleted inodes (fls), recovers unallocated files (icat + tsk_recover), and flags disguised file extensions.
+          </p>
+        </div>
+        <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
+          <strong style="color: var(--primary);">3. Auditing & Reporting</strong>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+            A MACB timeline is generated with mactime. Post-analysis re-hashing verifies zero evidence contamination (PASS/FAIL). Downloadable HTML, PDF, and zipped case packages are compiled.
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('evidence_file');
+    const dropzoneText = document.getElementById('dropzoneText');
+    const fileInfo = document.getElementById('fileInfo');
+    const form = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect();
+      }
+    });
+
+    fileInput.addEventListener('change', handleFileSelect);
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function handleFileSelect() {
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        dropzoneText.textContent = `Selected: ${file.name}`;
+        fileInfo.style.display = 'block';
+        fileInfo.textContent = `File: ${file.name} (${formatBytes(file.size)})`;
+      }
+    }
+
+    form.addEventListener('submit', () => {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <svg class="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+        Uploading & Ingesting Evidence...
+      `;
+    });
+  </script>
+  <style>
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</body>
+</html>
