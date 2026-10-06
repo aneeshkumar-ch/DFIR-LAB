@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 # Base Paths
-BASE_DIR = Path(r"D:\PROJECTS\ForensicsAnalyzer").resolve()
+BASE_DIR = Path(__file__).resolve().parent
 JOBS_DIR = BASE_DIR / "jobs"
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
