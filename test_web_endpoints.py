@@ -63,7 +63,7 @@ def test_endpoints():
     assert b"CHAIN OF CUSTODY" in res_custody.data
 
     # 9. Test POST /upload
-    test_img = Path(r"D:\PROJECTS\ForensicsAnalyzer\test_images\practice_evidence.dd")
+    test_img = BASE_DIR / "test_images" / "practice_evidence.dd"
     with open(test_img, "rb") as f:
         import io
         file_storage = (io.BytesIO(f.read()), "test_evidence_upload.dd")
