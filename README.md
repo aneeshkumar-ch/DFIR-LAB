@@ -154,7 +154,38 @@ This generates `test_images\practice_evidence.dd` (1.44 MB) containing active fi
 
 ---
 
-## 8. Running the Application
+## 8. Remote Server & Docker Deployment (Port 888)
+
+The analyzer is fully dockerized and deployed to the forensic server at `/opt/bcssl-teqm/aneesh/DFIR-LAB`:
+
+### Server Access URLs
+- **Office LAN**: `http://192.168.0.92:888`
+- **Tailscale (Remote)**: `http://100.84.56.125:888`
+
+### Docker Deployment Steps
+```bash
+# 1. Clone repository into designated workspace
+cd /opt/bcssl-teqm/aneesh
+git clone https://github.com/aneeshkumar-ch/DFIR-LAB.git
+cd DFIR-LAB
+
+# 2. Build and launch container in background
+docker compose up -d --build
+
+# 3. Check health and live server logs
+docker ps --filter name=dfir-analyzer
+docker logs -f dfir-analyzer
+
+# 4. Run end-to-end automated verification inside container
+docker exec dfir-analyzer python test_pipeline.py
+docker exec dfir-analyzer python test_web_endpoints.py
+```
+
+All examination evidence and output deliverables (`jobs/`) are persistently mounted to `/opt/bcssl-teqm/aneesh/DFIR-LAB/jobs` on the host filesystem.
+
+---
+
+## 9. Running the Application (Local Workstation)
 
 ### Step 1: Start the Dashboard
 ```powershell
