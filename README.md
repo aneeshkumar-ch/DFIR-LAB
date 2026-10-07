@@ -259,8 +259,46 @@ Validates handling of Expert Witness format images (`2020DFImage.E01`, 309 MB NT
 | **6. Written Chain-of-Custody Log** | `chain_of_custody.txt` & `actions_log.txt` | `jobs/<id>/chain_of_custody.txt`<br>`jobs/<id>/actions_log.txt` |
 | **7. Final Combined Case Report** | `report.html`, `report.pdf`, `case_package.zip` | `jobs/<id>/reports/report.html`<br>`jobs/<id>/reports/report.pdf` |
 
+## 11. Storage Optimization & Retention Policies (Option A)
+
+To operate efficiently in resource-constrained server environments, the system implements **Option A** automated lifecycle management:
+
+### Core Mechanisms
+1. **Mechanism 1 (Immediate Working Copy Purge)**:
+   - Once all 9 forensic phases, integrity audits, and case deliverables are generated, the engine automatically deletes `working/<image>` and any temporary ingest caches.
+   - **Impact**: Reclaims **50%+ disk space** per investigation immediately.
+2. **Mechanism 2 (Automated Background TTL Cleaner)**:
+   - A daemon thread runs periodically (every 30 minutes) evaluating completed jobs:
+     - **After 24 Hours (`RAW_IMAGE_RETENTION_HOURS=24`)**: Safely removes the multi-gigabyte raw uploaded evidence image from `original/`, leaving a `.pruned.txt` marker.
+     - **After 72 Hours (`JOB_RETENTION_HOURS=72`)**: Prunes heavy recovered file trees and large case ZIP archives while permanently preserving audit logs (`chain_of_custody.txt`, `actions_log.txt`, `hashes.txt`), reports (`report.html`, `report.pdf`), and timeline CSVs.
+3. **Mechanism 3 (Emergency High-Watermark Safeguard)**:
+   - Before accepting any upload, `/upload` inspects server free disk space (`shutil.disk_usage`).
+   - If available space drops below **1.5 GB (`MIN_FREE_DISK_GB=1.5`)**, an emergency FIFO purge of the oldest raw images is triggered.
+   - If available space is still under 500 MB, the upload is rejected gracefully with HTTP `507 Insufficient Storage`.
+4. **Mechanism 4 (Manual 1-Click Evidence Purge)**:
+   - Investigators can manually purge the raw image anytime using the **"Purge Raw Image"** button on the `/job/<id>` dashboard or via `POST /api/job/<id>/purge-raw-image`.
+
+### Storage Status API
+Query server storage health and active retention parameters:
+```bash
+curl http://<server-ip>:888/api/storage-status
+```
+Example JSON response:
+```json
+{
+  "status": "healthy",
+  "free_gb": 4.72,
+  "used_gb": 22.19,
+  "total_gb": 28.37,
+  "min_free_threshold_gb": 1.5,
+  "auto_clean_working_copy": true,
+  "raw_image_retention_hours": 24,
+  "job_retention_hours": 72
+}
+```
+
 ---
 
-## 11. License & Academic Disclaimer
+## 12. License & Academic Disclaimer
 
 Developed for academic research and educational forensic laboratory training under **BCSSL Lab 14**. Designed for authorized educational analysis of bitstream forensic disk images.

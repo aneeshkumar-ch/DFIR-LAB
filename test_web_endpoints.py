@@ -81,7 +81,26 @@ def test_endpoints():
     assert res_upload.status_code == 302
     assert "/job/" in res_upload.headers.get('Location')
 
-    print("\nALL FLASK ENDPOINT TESTS PASSED COMPLETELY!")
+    # 10. Test GET /api/storage-status (Option A)
+    res_storage = client.get("/api/storage-status")
+    print(f"GET /api/storage-status -> Status {res_storage.status_code}")
+    assert res_storage.status_code == 200
+    storage_json = res_storage.get_json()
+    assert storage_json["auto_clean_working_copy"] is True
+    assert storage_json["raw_image_retention_hours"] == 24
+    assert storage_json["job_retention_hours"] == 72
+    assert storage_json["min_free_threshold_gb"] == 1.5
+    assert "free_gb" in storage_json
+
+    # 11. Test POST /api/job/<id>/purge-raw-image (Option A)
+    res_purge = client.post("/api/job/test_run_001/purge-raw-image")
+    print(f"POST /api/job/test_run_001/purge-raw-image -> Status {res_purge.status_code}")
+    assert res_purge.status_code == 200
+    purge_json = res_purge.get_json()
+    assert purge_json["success"] is True
+
+    print("\nALL FLASK ENDPOINT TESTS (INCLUDING OPTION A STORAGE APIS) PASSED COMPLETELY!")
 
 if __name__ == "__main__":
     test_endpoints()
+
