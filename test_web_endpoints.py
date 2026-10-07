@@ -1,7 +1,6 @@
 import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(r"D:\PROJECTS\ForensicsAnalyzer").resolve()))
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
 
 import app as flask_app_module
 from app import app, JOBS, JOBS_LOCK

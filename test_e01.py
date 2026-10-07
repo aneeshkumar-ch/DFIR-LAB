@@ -3,13 +3,14 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(r"D:\PROJECTS\ForensicsAnalyzer").resolve()))
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
 
 import config
 from app import run_analysis_pipeline, JOBS, JOBS_LOCK
 
 def test_e01_pipeline():
-    e01_path = Path(r"D:\2020DFImage 1\2020DFImage.E01")
+    e01_path = BASE_DIR / "test_images" / "2020DFImage.E01"
     if not e01_path.exists():
         print(f"Skipping E01 test: {e01_path} not found.")
         return
@@ -21,7 +22,8 @@ def test_e01_pipeline():
         def on_rm_error(func, path, exc_info):
             try:
                 os.chmod(path, stat.S_IWRITE)
-                subprocess.run(["attrib", "-R", str(path)], check=False, capture_output=True)
+                if os.name == "nt":
+                    subprocess.run(["attrib", "-R", str(path)], check=False, capture_output=True)
                 func(path)
             except Exception:
                 pass

@@ -5,13 +5,14 @@ import time
 from pathlib import Path
 
 # Add project root to sys.path
-sys.path.insert(0, str(Path(r"D:\PROJECTS\ForensicsAnalyzer").resolve()))
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
 
 import config
 from app import run_analysis_pipeline, JOBS, JOBS_LOCK
 
 def run_test():
-    test_image = Path(r"D:\PROJECTS\ForensicsAnalyzer\test_images\practice_evidence.dd")
+    test_image = BASE_DIR / "test_images" / "practice_evidence.dd"
     if not test_image.exists():
         print(f"ERROR: Test image {test_image} does not exist!")
         sys.exit(1)
@@ -25,7 +26,8 @@ def run_test():
         def on_rm_error(func, path, exc_info):
             try:
                 os.chmod(path, stat.S_IWRITE)
-                subprocess.run(["attrib", "-R", str(path)], check=False, capture_output=True)
+                if os.name == "nt":
+                    subprocess.run(["attrib", "-R", str(path)], check=False, capture_output=True)
                 func(path)
             except Exception:
                 pass
