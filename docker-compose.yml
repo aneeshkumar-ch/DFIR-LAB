@@ -1,0 +1,13 @@
+services:
+  dfir-analyzer:
+    build: .
+    container_name: dfir-analyzer
+    restart: unless-stopped
+    ports:
+      - "888:5000"
+    environment:
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - AUTOPSY_ENABLED=false
+    volumes:
+      - ./jobs:/app/jobs

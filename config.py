@@ -1,5 +1,10 @@
 import os
+import platform
+import shutil
 from pathlib import Path
+
+# Operating System Detection
+IS_WINDOWS = platform.system() == "Windows"
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -8,44 +13,71 @@ STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
 # Flask Server Configuration
-HOST = "127.0.0.1"
-PORT = 5000
-DEBUG = False
-SECRET_KEY = "case-test-014-digital-forensics-analyzer-secret-key"
+HOST = os.getenv("FLASK_HOST", "127.0.0.1")
+PORT = int(os.getenv("FLASK_PORT", 5000))
+DEBUG = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
+SECRET_KEY = os.getenv("SECRET_KEY", "case-test-014-digital-forensics-analyzer-secret-key")
 # Maximum upload size: 10 GB
-MAX_CONTENT_LENGTH = 10 * 1024 * 1024 * 1024
+MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 10 * 1024 * 1024 * 1024))
 
 # Case Defaults
-DEFAULT_CASE_NUMBER = "CASE-TEST-014"
-DEFAULT_EXAMINER = "Forensics Examiner"
+DEFAULT_CASE_NUMBER = os.getenv("DEFAULT_CASE_NUMBER", "CASE-TEST-014")
+DEFAULT_EXAMINER = os.getenv("DEFAULT_EXAMINER", "Forensics Examiner")
 
 # Supported Evidence Image Formats
 ALLOWED_EXTENSIONS = {".dd", ".img", ".raw", ".001", ".e01"}
 
 # The Sleuth Kit (TSK) Configuration
-TSK_BIN_DIR = Path(r"D:\sleuthkit-4.15.0-win32\bin")
+_tsk_env = os.getenv("TSK_BIN_DIR")
+if _tsk_env:
+    TSK_BIN_DIR = Path(_tsk_env)
+elif IS_WINDOWS and Path(r"D:\sleuthkit-4.15.0-win32\bin").exists():
+    TSK_BIN_DIR = Path(r"D:\sleuthkit-4.15.0-win32\bin")
+else:
+    TSK_BIN_DIR = None
 
-MMLS_PATH = str(TSK_BIN_DIR / "mmls.exe")
-FLS_PATH = str(TSK_BIN_DIR / "fls.exe")
-FSSTAT_PATH = str(TSK_BIN_DIR / "fsstat.exe")
-ICAT_PATH = str(TSK_BIN_DIR / "icat.exe")
-TSK_RECOVER_PATH = str(TSK_BIN_DIR / "tsk_recover.exe")
-TSK_GETTIMES_PATH = str(TSK_BIN_DIR / "tsk_gettimes.exe")
-IMG_STAT_PATH = str(TSK_BIN_DIR / "img_stat.exe")
-MACTIME_SCRIPT = str(TSK_BIN_DIR / "mactime.pl")
+def _resolve_binary(name: str) -> str:
+    ext = ".exe" if IS_WINDOWS else ""
+    if TSK_BIN_DIR:
+        candidate = TSK_BIN_DIR / f"{name}{ext}"
+        if candidate.exists():
+            return str(candidate)
+    found = shutil.which(f"{name}{ext}") or shutil.which(name)
+    if found:
+        return found
+    return f"{name}{ext}" if IS_WINDOWS else name
 
-# Perl Configuration (used for mactime.pl)
-PERL_PATH = "perl"
+MMLS_PATH = _resolve_binary("mmls")
+FLS_PATH = _resolve_binary("fls")
+FSSTAT_PATH = _resolve_binary("fsstat")
+ICAT_PATH = _resolve_binary("icat")
+TSK_RECOVER_PATH = _resolve_binary("tsk_recover")
+TSK_GETTIMES_PATH = _resolve_binary("tsk_gettimes")
+IMG_STAT_PATH = _resolve_binary("img_stat")
+
+# Perl Configuration (used for mactime)
+PERL_PATH = shutil.which("perl") or "perl"
+_mactime_candidate = _resolve_binary("mactime.pl")
+if not (os.path.isfile(_mactime_candidate) or shutil.which(_mactime_candidate)):
+    _mactime_candidate = shutil.which("mactime") or "mactime"
+MACTIME_SCRIPT = _mactime_candidate
 
 # Autopsy Configuration
-AUTOPSY_DIR = Path(r"D:\Autopsy-4.23.1")
-AUTOPSY_BIN = str(AUTOPSY_DIR / "bin" / "autopsy64.exe")
-AUTOPSY_ENABLED = True
-AUTOPSY_TIMEOUT_SECONDS = 25  # Timeout for command line ingest attempt
+_autopsy_env = os.getenv("AUTOPSY_DIR")
+if _autopsy_env:
+    AUTOPSY_DIR = Path(_autopsy_env)
+elif IS_WINDOWS and Path(r"D:\Autopsy-4.23.1").exists():
+    AUTOPSY_DIR = Path(r"D:\Autopsy-4.23.1")
+else:
+    AUTOPSY_DIR = Path("/usr/share/autopsy")
+
+AUTOPSY_BIN = str(AUTOPSY_DIR / "bin" / ("autopsy64.exe" if IS_WINDOWS else "autopsy"))
+AUTOPSY_ENABLED = os.getenv("AUTOPSY_ENABLED", "true" if IS_WINDOWS else "false").lower() in ("true", "1", "yes")
+AUTOPSY_TIMEOUT_SECONDS = int(os.getenv("AUTOPSY_TIMEOUT_SECONDS", 25))
 
 # Optional / External Forensic Utilities
-EWFVERIFY_PATH = None  # Populated dynamically if found in PATH or custom dir
-SRCH_STRINGS_PATH = None  # Populated dynamically if found
+EWFVERIFY_PATH = shutil.which("ewfverify.exe" if IS_WINDOWS else "ewfverify")
+SRCH_STRINGS_PATH = shutil.which("srch_strings.exe" if IS_WINDOWS else "srch_strings")
 
 # Ensure critical job directory exists
 JOBS_DIR.mkdir(parents=True, exist_ok=True)

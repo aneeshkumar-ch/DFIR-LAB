@@ -57,13 +57,15 @@ def record_custody_action(job_dir: Path, action_desc: str) -> None:
         f.write(entry)
 
 def set_read_only(filepath: Path) -> None:
-    """Make the original evidence file strictly read-only on Windows."""
+    """Make the original evidence file strictly read-only."""
     try:
         os.chmod(filepath, stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH)
-        # Apply Windows attrib +R safely without shell=True
-        subprocess.run(["attrib", "+R", str(filepath)], check=False, capture_output=True)
+        # Apply Windows attrib +R safely if on Windows
+        if os.name == "nt":
+            subprocess.run(["attrib", "+R", str(filepath)], check=False, capture_output=True)
     except Exception as e:
         print(f"Warning setting read-only flag on {filepath}: {e}")
+
 
 def verify_e01(image_path: Path, job_dir: Path) -> dict:
     """Verify E01 file integrity using ewfverify if available or img_stat."""
@@ -136,8 +138,9 @@ def intake_evidence(source_file_stream_or_path, original_filename: str, examiner
     # Clear read-only if file already exists in job directory
     if original_path.exists():
         try:
-            os.chmod(original_path, stat.S_IWRITE)
-            subprocess.run(["attrib", "-R", str(original_path)], check=False, capture_output=True)
+            os.chmod(original_path, stat.S_IWRITE | stat.S_IREAD)
+            if os.name == "nt":
+                subprocess.run(["attrib", "-R", str(original_path)], check=False, capture_output=True)
         except Exception:
             pass
 
