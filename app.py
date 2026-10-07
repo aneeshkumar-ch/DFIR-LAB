@@ -1,4 +1,7 @@
 import os
+import stat
+import time
+import shutil
 import uuid
 import json
 import threading
@@ -7,7 +10,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 from werkzeug.utils import secure_filename
 
 import config
-from analyzer.intake import intake_evidence, log_action
+from analyzer.intake import intake_evidence, log_action, format_bytes
 from analyzer.tsk import inspect_partitions, inspect_filesystem, list_files
 from analyzer.autopsy_cli import attempt_autopsy_ingest
 from analyzer.recovery import recover_files
@@ -15,6 +18,168 @@ from analyzer.timeline import build_timeline
 from analyzer.keywords import execute_keyword_search
 from analyzer.integrity import verify_evidence_integrity
 from analyzer.report import generate_html_report, generate_pdf_report, create_case_package_zip
+
+def safe_remove_file(filepath: Path) -> int:
+    """Safely delete a file even if marked read-only, returning bytes freed."""
+    if not filepath.exists() or not filepath.is_file():
+        return 0
+    try:
+        size = filepath.stat().st_size
+        os.chmod(filepath, stat.S_IWRITE | stat.S_IREAD)
+        if os.name == "nt":
+            import subprocess
+            subprocess.run(["attrib", "-R", str(filepath)], check=False, capture_output=True)
+        filepath.unlink()
+        return size
+    except Exception as e:
+        print(f"Warning: Could not remove {filepath}: {e}")
+        return 0
+
+def safe_remove_tree(dirpath: Path) -> int:
+    """Safely delete a directory tree, returning bytes freed."""
+    if not dirpath.exists() or not dirpath.is_dir():
+        return 0
+    total_freed = 0
+    try:
+        for root, dirs, files in os.walk(dirpath, topdown=False):
+            for f in files:
+                total_freed += safe_remove_file(Path(root) / f)
+            for d in dirs:
+                try:
+                    (Path(root) / d).rmdir()
+                except Exception:
+                    pass
+        dirpath.rmdir()
+    except Exception as e:
+        print(f"Warning: Could not remove directory {dirpath}: {e}")
+    return total_freed
+
+def purge_working_copy(job_dir: Path) -> int:
+    """
+    Mechanism 1: Immediately purge working replica and autopsy cache.
+    Reclaims 50%+ disk space while leaving reports, logs, and recovered files intact.
+    """
+    bytes_freed = 0
+    working_dir = job_dir / "working"
+    if working_dir.exists():
+        for item in working_dir.iterdir():
+            if item.is_file():
+                bytes_freed += safe_remove_file(item)
+    autopsy_dir = job_dir / "autopsy"
+    if autopsy_dir.exists():
+        bytes_freed += safe_remove_tree(autopsy_dir)
+    
+    if bytes_freed > 0:
+        log_action(job_dir, f"[STORAGE OPTIMIZATION] Working bitstream replica purged. Reclaimed {format_bytes(bytes_freed)}.")
+    return bytes_freed
+
+def purge_original_image(job_dir: Path) -> int:
+    """
+    Purge raw uploaded evidence image from original/ folder.
+    Leaves a placeholder marker so examiners know it was pruned by retention policy.
+    """
+    original_dir = job_dir / "original"
+    bytes_freed = 0
+    if original_dir.exists():
+        for item in original_dir.iterdir():
+            if item.is_file() and not item.name.startswith("."):
+                bytes_freed += safe_remove_file(item)
+        if bytes_freed > 0:
+            marker = original_dir / ".pruned.txt"
+            marker.write_text(
+                f"Raw disk image pruned by storage retention policy.\n"
+                f"Reports, audit logs, and case deliverables remain preserved.\n",
+                encoding="utf-8"
+            )
+            log_action(job_dir, f"[STORAGE RETENTION] Raw disk image pruned. Reclaimed {format_bytes(bytes_freed)}.")
+    return bytes_freed
+
+def emergency_purge_oldest_images() -> int:
+    """
+    Mechanism 3: High-watermark emergency purge.
+    Iterates over completed jobs oldest first to free space when disk is low.
+    """
+    total_freed = 0
+    if not config.JOBS_DIR.exists():
+        return 0
+    
+    try:
+        job_dirs = sorted(
+            [d for d in config.JOBS_DIR.iterdir() if d.is_dir()],
+            key=lambda d: d.stat().st_mtime
+        )
+        for jdir in job_dirs:
+            total_freed += purge_working_copy(jdir)
+            total_freed += purge_original_image(jdir)
+            
+            free_bytes = shutil.disk_usage(config.JOBS_DIR).free
+            if free_bytes >= config.MIN_FREE_DISK_GB * (1024 ** 3):
+                break
+    except Exception as e:
+        print(f"Error during emergency storage purge: {e}")
+        
+    return total_freed
+
+def purge_expired_jobs() -> dict:
+    """
+    Mechanism 2: TTL Background cleaner.
+    - Jobs older than RAW_IMAGE_RETENTION_HOURS: purges original raw images.
+    - Jobs older than JOB_RETENTION_HOURS: purges heavy recovered files and ZIP, keeping reports and logs.
+    """
+    now = time.time()
+    raw_cutoff = now - (config.RAW_IMAGE_RETENTION_HOURS * 3600)
+    job_cutoff = now - (config.JOB_RETENTION_HOURS * 3600)
+    
+    stats = {"raw_images_pruned": 0, "jobs_archived": 0, "bytes_freed": 0}
+    if not config.JOBS_DIR.exists():
+        return stats
+        
+    for jdir in config.JOBS_DIR.iterdir():
+        if not jdir.is_dir():
+            continue
+        try:
+            mtime = jdir.stat().st_mtime
+            # Always ensure working copy is pruned if job is complete
+            if (jdir / "reports" / "report.html").exists():
+                stats["bytes_freed"] += purge_working_copy(jdir)
+                
+            # Stage 1: Purge raw original image after RAW_IMAGE_RETENTION_HOURS
+            if mtime < raw_cutoff:
+                freed = purge_original_image(jdir)
+                if freed > 0:
+                    stats["raw_images_pruned"] += 1
+                    stats["bytes_freed"] += freed
+                    
+            # Stage 2: Prune heavy recovered files and case package after JOB_RETENTION_HOURS
+            if mtime < job_cutoff:
+                rec_dir = jdir / "recovered"
+                if rec_dir.exists():
+                    freed = safe_remove_tree(rec_dir)
+                    stats["bytes_freed"] += freed
+                pkg_zip = jdir / "reports" / "case_package.zip"
+                if pkg_zip.exists():
+                    freed = safe_remove_file(pkg_zip)
+                    stats["bytes_freed"] += freed
+                stats["jobs_archived"] += 1
+        except Exception as e:
+            print(f"Error checking job {jdir.name} for cleanup: {e}")
+            
+    return stats
+
+_CLEANER_STARTED = False
+def init_storage_cleaner():
+    global _CLEANER_STARTED
+    if not _CLEANER_STARTED:
+        _CLEANER_STARTED = True
+        def _loop():
+            while True:
+                try:
+                    purge_expired_jobs()
+                except Exception as e:
+                    print(f"[StorageCleaner Error] {e}")
+                time.sleep(config.CLEANUP_INTERVAL_SECONDS)
+        t = threading.Thread(target=_loop, daemon=True, name="StorageCleaner")
+        t.start()
 
 app = Flask(
     __name__,
@@ -211,6 +376,11 @@ def run_analysis_pipeline(job_id: str, temp_upload_path: Path, original_filename
             
         log_action(job_dir, "Forensic pipeline successfully finished. Deliverables ready.")
 
+        # Mechanism 1: Immediate Post-Analysis Working Replica Cleanup
+        if config.AUTO_CLEAN_WORKING_IMAGE:
+            purge_working_copy(job_dir)
+
+
     except Exception as e:
         log_action(job_dir, f"[FATAL ERROR] Analysis pipeline encountered an exception: {e}")
         with JOBS_LOCK:
@@ -251,6 +421,24 @@ def upload():
     examiner = request.form.get("examiner", config.DEFAULT_EXAMINER).strip() or config.DEFAULT_EXAMINER
     case_number = request.form.get("case_number", config.DEFAULT_CASE_NUMBER).strip() or config.DEFAULT_CASE_NUMBER
     keywords = request.form.get("keywords", "").strip()
+
+    # Mechanism 3: High-Watermark Disk Space Safeguard
+    try:
+        free_bytes = shutil.disk_usage(config.JOBS_DIR).free
+        free_gb = free_bytes / (1024 ** 3)
+        if free_gb < config.MIN_FREE_DISK_GB:
+            emergency_purge_oldest_images()
+            free_bytes = shutil.disk_usage(config.JOBS_DIR).free
+            free_gb = free_bytes / (1024 ** 3)
+            if free_gb < 0.5:
+                return (
+                    f"Server storage critically low ({free_gb:.2f} GB free). "
+                    "Automatic cleanup could not free sufficient space for new uploads. "
+                    "Please contact system administrator.",
+                    507
+                )
+    except Exception as e:
+        print(f"Warning during disk space check: {e}")
 
     job_id = uuid.uuid4().hex[:12]
     job_dir = config.JOBS_DIR / job_id
@@ -376,6 +564,54 @@ def download_custody(job_id: str):
     return send_file(custody_file, as_attachment=True, download_name=f"Chain_Of_Custody_{job_id}.txt")
 
 
+@app.route("/api/storage-status", methods=["GET"])
+def storage_status():
+    """Report server storage metrics and retention configuration."""
+    try:
+        usage = shutil.disk_usage(config.JOBS_DIR)
+        free_gb = usage.free / (1024 ** 3)
+        total_gb = usage.total / (1024 ** 3)
+        used_gb = usage.used / (1024 ** 3)
+        job_count = len([d for d in config.JOBS_DIR.iterdir() if d.is_dir()]) if config.JOBS_DIR.exists() else 0
+        return jsonify({
+            "status": "healthy" if free_gb >= config.MIN_FREE_DISK_GB else "low_disk",
+            "free_gb": round(free_gb, 2),
+            "used_gb": round(used_gb, 2),
+            "total_gb": round(total_gb, 2),
+            "min_free_threshold_gb": config.MIN_FREE_DISK_GB,
+            "jobs_count": job_count,
+            "auto_clean_working_copy": config.AUTO_CLEAN_WORKING_IMAGE,
+            "raw_image_retention_hours": config.RAW_IMAGE_RETENTION_HOURS,
+            "job_retention_hours": config.JOB_RETENTION_HOURS
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/job/<job_id>/purge-raw-image", methods=["POST"])
+def manual_purge_raw_image(job_id: str):
+    """Allow examiner to manually purge raw evidence images from server storage."""
+    job_dir = config.JOBS_DIR / job_id
+    if not job_dir.exists():
+        return jsonify({"error": "Job not found"}), 404
+        
+    freed_working = purge_working_copy(job_dir)
+    freed_original = purge_original_image(job_dir)
+    total_freed = freed_working + freed_original
+    
+    return jsonify({
+        "success": True,
+        "job_id": job_id,
+        "bytes_freed": total_freed,
+        "freed_str": format_bytes(total_freed),
+        "message": "Raw disk images successfully purged from server storage. Reports and deliverables preserved."
+    })
+
+
+# Start the background TTL storage cleaner daemon thread
+init_storage_cleaner()
+
+
 if __name__ == "__main__":
     print(f"================================================================")
     print(f" Digital Forensics Analyzer -- BCSSL Lab 14 (CASE-TEST-014)")
@@ -383,6 +619,7 @@ if __name__ == "__main__":
     print(f" Evidence Directory: {config.JOBS_DIR}")
     print(f" TSK Binaries:       {config.TSK_BIN_DIR}")
     print(f" Autopsy Bin:        {config.AUTOPSY_BIN}")
+    print(f" Storage Policies:   Auto-Clean Working Copy={config.AUTO_CLEAN_WORKING_IMAGE}, Raw TTL={config.RAW_IMAGE_RETENTION_HOURS}h, Min Free={config.MIN_FREE_DISK_GB}GB")
     print(f"================================================================")
-    # Binds strictly to 127.0.0.1 for forensic security
     app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
+

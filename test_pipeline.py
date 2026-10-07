@@ -94,7 +94,6 @@ def run_test():
     # Check generated files
     expected_files = [
         job_dir / "original" / test_image.name,
-        job_dir / "working" / test_image.name,
         job_dir / "chain_of_custody.txt",
         job_dir / "actions_log.txt",
         job_dir / "hashes.txt",
@@ -107,6 +106,8 @@ def run_test():
         job_dir / "reports" / "report.pdf",
         job_dir / "reports" / "case_package.zip"
     ]
+    if not config.AUTO_CLEAN_WORKING_IMAGE:
+        expected_files.insert(1, job_dir / "working" / test_image.name)
 
     print(f"\nDeliverable Artifact Checks:")
     all_files_ok = True

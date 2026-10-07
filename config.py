@@ -79,5 +79,13 @@ AUTOPSY_TIMEOUT_SECONDS = int(os.getenv("AUTOPSY_TIMEOUT_SECONDS", 25))
 EWFVERIFY_PATH = shutil.which("ewfverify.exe" if IS_WINDOWS else "ewfverify")
 SRCH_STRINGS_PATH = shutil.which("srch_strings.exe" if IS_WINDOWS else "srch_strings")
 
+# Resource Optimization & Storage Retention Policies
+AUTO_CLEAN_WORKING_IMAGE = os.getenv("AUTO_CLEAN_WORKING_IMAGE", "true").lower() in ("true", "1", "yes")
+RAW_IMAGE_RETENTION_HOURS = int(os.getenv("RAW_IMAGE_RETENTION_HOURS", 24))
+JOB_RETENTION_HOURS = int(os.getenv("JOB_RETENTION_HOURS", 72))
+CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", 1800))
+MIN_FREE_DISK_GB = float(os.getenv("MIN_FREE_DISK_GB", 1.5))
+
 # Ensure critical job directory exists
 JOBS_DIR.mkdir(parents=True, exist_ok=True)
+

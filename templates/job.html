@@ -65,6 +65,10 @@
         <a id="btnDownloadCsv" href="/job/{{ job_id }}/download/timeline" class="btn btn-outline">
           Download Timeline CSV
         </a>
+        <button id="btnPurgeImage" onclick="purgeServerEvidence()" class="btn btn-outline" style="color: #c53030; border-color: #feb2b2;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          Purge Raw Image (Reclaim Disk)
+        </button>
       </div>
     </div>
 
@@ -271,6 +275,28 @@
 
       if (!isFinished) {
         setTimeout(pollStatus, 1500);
+      }
+    }
+
+    async function purgeServerEvidence() {
+      if (!confirm("Purge the raw evidence image from server storage to reclaim disk space?\n\nYour generated reports, PDF, logs, and case packages will remain preserved.")) return;
+      try {
+        const res = await fetch(`/api/job/${jobId}/purge-raw-image`, { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Storage Reclaimed: ${data.freed_str}\n\n${data.message}`);
+          const btn = document.getElementById("btnPurgeImage");
+          if (btn) {
+            btn.textContent = "Raw Evidence Purged";
+            btn.disabled = true;
+            btn.style.color = "#718096";
+            btn.style.borderColor = "#cbd5e0";
+          }
+        } else {
+          alert("Notice: " + (data.message || data.error));
+        }
+      } catch (err) {
+        alert("Purge request failed: " + err);
       }
     }
 
