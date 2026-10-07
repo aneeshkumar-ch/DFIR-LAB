@@ -1,5 +1,4 @@
 jobs/
-test_images/
 .git/
 __pycache__/
 *.py[cod]

@@ -14,8 +14,18 @@ from app import run_analysis_pipeline, JOBS, JOBS_LOCK
 def run_test():
     test_image = BASE_DIR / "test_images" / "practice_evidence.dd"
     if not test_image.exists():
-        print(f"ERROR: Test image {test_image} does not exist!")
-        sys.exit(1)
+        maker_script = BASE_DIR / "test_images" / "make_practice_image.py"
+        if maker_script.exists():
+            print("Notice: Generating practice_evidence.dd via make_practice_image...")
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("make_practice_image", maker_script)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            test_image.parent.mkdir(parents=True, exist_ok=True)
+            mod.create_fat12_practice_image(test_image)
+        else:
+            print(f"ERROR: Test image {test_image} does not exist!")
+            sys.exit(1)
 
     job_id = "test_run_001"
     job_dir = config.JOBS_DIR / job_id
