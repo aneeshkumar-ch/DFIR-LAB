@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Storage Console | Digital Forensics Analyzer</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+    .admin-table th, .admin-table td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .admin-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #4a5568;
+    }
+    .admin-table tr:hover {
+      background: #f7fafc;
+    }
+    .pill {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .pill-success { background: #def7ec; color: #03543f; }
+    .pill-muted { background: #edf2f7; color: #718096; }
+    .pill-danger { background: #fde8e8; color: #9b1c1c; }
+    .pill-warning { background: #fef08a; color: #713f12; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <span class="logo-badge" style="background: #e53e3e;">ADMIN</span>
+        <div>
+          <div class="site-title">Digital Forensics Analyzer</div>
+          <div class="site-subtitle">Storage &amp; Retention Management Console</div>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-link">&larr; Evidence Intake</a>
+        <a href="/admin/logout" class="nav-link" style="color: #e53e3e;">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Server Storage & Option A Retention Monitor -->
+    <div class="card" style="margin-bottom: 1.5rem; background: #ffffff; border-left: 4px solid #3182ce;">
+      <div class="card-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+        <div class="card-title" style="font-size: 1rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          System Storage &amp; Retention Policy (Option A Active)
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button onclick="loadStorageStatus()" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Refresh</button>
+          <span id="storageBadge" class="badge badge-success">Checking...</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+          <span id="storageSummary">Available Storage: Loading...</span>
+          <span id="storagePercent" style="font-weight: 600; color: var(--primary);">0%</span>
+        </div>
+        
+        <!-- Fixed Colour Storage Progress Bar (Green > 3GB, Amber < 3GB, Red < 1.5GB) -->
+        <div style="width: 100%; background: #edf2f7; height: 12px; border-radius: 6px; overflow: hidden;">
+          <div id="storageBar" style="width: 0%; height: 100%; background: #38a169; transition: width 0.4s ease, background-color 0.4s ease;"></div>
+        </div>
+        
+        <!-- Dynamic Settings Display reading directly from active backend configuration -->
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; border-top: 1px solid #edf2f7; padding-top: 0.5rem;">
+          <span>✓ <strong>Mechanism 1:</strong> Auto-purge working replica upon Phase 9</span>
+          <span id="settingTtl">✓ <strong>Mechanism 2:</strong> Loading TTL policies...</span>
+          <span id="settingSafeguard">✓ <strong>Mechanism 3:</strong> Loading safeguard threshold...</span>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+          <button onclick="triggerEmergencyPurge()" class="btn btn-outline" style="color: #c53030; border-color: #feb2b2; font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Trigger Emergency Storage Purge
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Case Inventory & Storage Breakdown -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Case Inventory &amp; Evidence Storage Management
+        </div>
+        <span class="badge badge-info" id="caseCountBadge">{{ cases|length }} Cases</span>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Case Reference</th>
+              <th>Lead Examiner</th>
+              <th>Created (UTC)</th>
+              <th>Total Size</th>
+              <th>Raw Evidence</th>
+              <th>ZIP Archive</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in cases %}
+            <tr>
+              <td><code>{{ c.job_id }}</code></td>
+              <td><strong>{{ c.case_number }}</strong></td>
+              <td>{{ c.examiner }}</td>
+              <td style="font-size: 0.8rem; color: #718096;">{{ c.created_str }}</td>
+              <td><strong>{{ c.size_str }}</strong></td>
+              <td>
+                {% if c.has_original %}
+                <span class="pill pill-warning">Present ({{ c.orig_size_str }})</span>
+                {% else %}
+                <span class="pill pill-muted">Pruned</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if c.has_package %}
+                <span class="pill pill-success">Present</span>
+                {% else %}
+                <span class="pill pill-muted">Pruned</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="display: flex; gap: 0.35rem;">
+                  <a href="/job/{{ c.job_id }}/report" class="btn btn-outline" style="padding: 0.2rem 0.45rem; font-size: 0.75rem;">Report</a>
+                  {% if c.has_original or c.has_package %}
+                  <button onclick="purgeCase('{{ c.job_id }}')" class="btn btn-outline" style="color: #c53030; border-color: #feb2b2; padding: 0.2rem 0.45rem; font-size: 0.75rem;">Purge</button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; color: #a0aec0; padding: 2rem;">No case folders found in evidence directory.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function loadStorageStatus() {
+      try {
+        const res = await fetch('/api/storage-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const freeGb = (data.free_gb || 0).toFixed(2);
+        const totalGb = (data.total_gb || 0).toFixed(2);
+        const usedGb = (data.used_gb || 0).toFixed(2);
+        const usedPct = data.total_gb > 0 ? Math.round((data.used_gb / data.total_gb) * 100) : 0;
+        
+        const summaryEl = document.getElementById('storageSummary');
+        const percentEl = document.getElementById('storagePercent');
+        const barEl = document.getElementById('storageBar');
+        const badgeEl = document.getElementById('storageBadge');
+        const ttlEl = document.getElementById('settingTtl');
+        const safeguardEl = document.getElementById('settingSafeguard');
+        
+        summaryEl.innerHTML = `<strong>${freeGb} GB Free</strong> out of ${totalGb} GB (${usedGb} GB used by OS & Docker)`;
+        percentEl.textContent = `${usedPct}% Used`;
+        barEl.style.width = `${usedPct}%`;
+        
+        // Dynamic settings text reading actual backend values
+        ttlEl.innerHTML = `✓ <strong>Mechanism 2:</strong> ${data.raw_image_retention_hours}h raw image TTL &bull; ${data.job_retention_hours}h case archive TTL`;
+        safeguardEl.innerHTML = `✓ <strong>Mechanism 3:</strong> ${data.min_free_threshold_gb} GB emergency safeguard`;
+        
+        // Exact Colour Specifications (Requirement 5):
+        // Green above 3 GB free, Amber below 3 GB, Red below 1.5 GB
+        if (data.free_gb < 1.5) {
+          badgeEl.className = 'badge badge-danger';
+          badgeEl.textContent = 'CRITICAL (<1.5 GB)';
+          badgeEl.style.background = '#e53e3e';
+          barEl.style.background = '#e53e3e'; // RED below 1.5 GB
+        } else if (data.free_gb < 3.0) {
+          badgeEl.className = 'badge badge-warning';
+          badgeEl.textContent = 'LOW (<3.0 GB)';
+          badgeEl.style.background = '#dd6b20';
+          barEl.style.background = '#dd6b20'; // AMBER below 3.0 GB
+        } else {
+          badgeEl.className = 'badge badge-success';
+          badgeEl.textContent = 'HEALTHY (>3.0 GB)';
+          badgeEl.style.background = '#38a169';
+          barEl.style.background = '#38a169'; // GREEN above 3.0 GB
+        }
+      } catch (e) {
+        console.warn('Could not query /api/storage-status:', e);
+      }
+    }
+
+    loadStorageStatus();
+
+    async function triggerEmergencyPurge() {
+      if (!confirm("Run emergency storage purge now? This will clean working copies, raw images, and unneeded recovered scratch files from the oldest completed cases.")) return;
+      try {
+        const res = await fetch('/api/admin/emergency-purge', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || `Purged successfully. Reclaimed ${data.freed_str}`);
+        window.location.reload();
+      } catch (e) {
+        alert("Error running emergency purge: " + e);
+      }
+    }
+
+    async function purgeCase(jobId) {
+      if (!confirm(`Purge heavy raw evidence and scratch files for case ${jobId}? Reports and Chain of Custody will remain preserved.`)) return;
+      try {
+        const res = await fetch(`/api/job/${jobId}/purge-raw-image`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || `Reclaimed ${data.freed_str}`);
+        window.location.reload();
+      } catch (e) {
+        alert("Error purging case: " + e);
+      }
+    }
+  </script>
+</body>
+</html>

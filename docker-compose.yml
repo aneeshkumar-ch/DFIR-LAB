@@ -15,6 +15,7 @@ services:
       - JOB_RETENTION_HOURS=24
       - CLEANUP_INTERVAL_SECONDS=1800
       - MIN_FREE_DISK_GB=1.5
+      - ADMIN_PASSWORD=bcssl4444
     volumes:
       - ./jobs:/app/jobs
 

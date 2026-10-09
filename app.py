@@ -6,7 +6,7 @@ import uuid
 import json
 import threading
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, abort
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, abort, session
 from werkzeug.utils import secure_filename
 
 import config
@@ -560,8 +560,25 @@ def download_package(job_id: str):
     """Download bundled case archive ZIP."""
     pkg_file = config.JOBS_DIR / job_id / "reports" / "case_package.zip"
     if not pkg_file.exists():
-        return "Case package archive is not available.", 404
+        return render_template(
+            "package_pruned.html",
+            job_id=job_id,
+            artifact_name="Case Package Archive (ZIP)"
+        ), 200
     return send_file(pkg_file, as_attachment=True, download_name=f"Case_Package_{job_id}.zip")
+
+
+@app.route("/job/<job_id>/recovered/<path:filename>", methods=["GET"])
+def download_recovered_file(job_id: str, filename: str):
+    """Download or view an individual recovered evidence file."""
+    rec_file = config.JOBS_DIR / job_id / "recovered" / filename
+    if not rec_file.exists():
+        return render_template(
+            "package_pruned.html",
+            job_id=job_id,
+            artifact_name=f"Recovered Artifact ({filename})"
+        ), 200
+    return send_file(rec_file, as_attachment=True, download_name=Path(filename).name)
 
 
 @app.route("/job/<job_id>/download/timeline", methods=["GET"])
@@ -632,6 +649,100 @@ def manual_purge_raw_image(job_id: str):
         "bytes_freed": total_freed,
         "freed_str": format_bytes(total_freed),
         "message": "Evidence artifacts successfully purged from server storage. Reports and audit logs preserved."
+    })
+
+
+def get_case_inventory() -> list:
+    """Scan jobs directory and compile inventory of cases and storage footprints."""
+    cases = []
+    if not config.JOBS_DIR.exists():
+        return cases
+    try:
+        jdirs = sorted([d for d in config.JOBS_DIR.iterdir() if d.is_dir()], key=lambda d: d.stat().st_mtime, reverse=True)
+        for jdir in jdirs:
+            try:
+                mtime = jdir.stat().st_mtime
+                created_str = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(mtime))
+                
+                tot_size = 0
+                for root, _, files in os.walk(jdir):
+                    for f in files:
+                        try:
+                            tot_size += (Path(root) / f).stat().st_size
+                        except Exception:
+                            pass
+                            
+                orig_dir = jdir / "original"
+                has_orig = False
+                orig_size = 0
+                if orig_dir.exists():
+                    for f in orig_dir.iterdir():
+                        if f.is_file() and not f.name.startswith("."):
+                            has_orig = True
+                            orig_size += f.stat().st_size
+                            
+                pkg_file = jdir / "reports" / "case_package.zip"
+                has_pkg = pkg_file.exists() and pkg_file.stat().st_size > 0
+                
+                job_data = get_job_data(jdir.name)
+                case_num = job_data.get("case_number", config.DEFAULT_CASE_NUMBER)
+                examiner = job_data.get("examiner", config.DEFAULT_EXAMINER)
+                
+                cases.append({
+                    "job_id": jdir.name,
+                    "case_number": case_num,
+                    "examiner": examiner,
+                    "created_str": created_str,
+                    "size_bytes": tot_size,
+                    "size_str": format_bytes(tot_size),
+                    "has_original": has_orig,
+                    "orig_size_str": format_bytes(orig_size),
+                    "has_package": has_pkg
+                })
+            except Exception as e:
+                print(f"Error inspecting case {jdir.name}: {e}")
+    except Exception as e:
+        print(f"Error compiling case inventory: {e}")
+    return cases
+
+
+@app.route("/admin", methods=["GET"])
+def admin_dashboard():
+    """Admin Storage & Retention Management Console."""
+    if not session.get("is_admin"):
+        return render_template("admin_login.html")
+    cases = get_case_inventory()
+    return render_template("admin.html", cases=cases)
+
+
+@app.route("/admin/login", methods=["POST"])
+def admin_login():
+    """Authenticate administrator."""
+    pwd = request.form.get("password", "")
+    if pwd == config.ADMIN_PASSWORD:
+        session["is_admin"] = True
+        return redirect(url_for("admin_dashboard"))
+    return render_template("admin_login.html", error="Invalid administrator password."), 401
+
+
+@app.route("/admin/logout", methods=["GET"])
+def admin_logout():
+    """Log out administrator."""
+    session.pop("is_admin", None)
+    return redirect(url_for("index"))
+
+
+@app.route("/api/admin/emergency-purge", methods=["POST"])
+def api_admin_emergency_purge():
+    """Trigger emergency storage purge across oldest jobs."""
+    if not session.get("is_admin"):
+        return jsonify({"error": "Unauthorized"}), 401
+    freed = emergency_purge_oldest_images()
+    return jsonify({
+        "success": True,
+        "bytes_freed": freed,
+        "freed_str": format_bytes(freed),
+        "message": f"Emergency purge completed. Reclaimed {format_bytes(freed)}."
     })
 
 

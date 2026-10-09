@@ -3,6 +3,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
+import shutil
+import config
 import app as flask_app_module
 from app import app, JOBS, JOBS_LOCK
 
@@ -99,7 +101,36 @@ def test_endpoints():
     purge_json = res_purge.get_json()
     assert purge_json["success"] is True
 
-    print("\nALL FLASK ENDPOINT TESTS (INCLUDING OPTION A STORAGE APIS) PASSED COMPLETELY!")
+    # 12. Test GET /admin unauthenticated
+    res_admin_login = client.get("/admin")
+    print(f"GET /admin (Unauth) -> Status {res_admin_login.status_code}")
+    assert res_admin_login.status_code == 200
+    assert b"Admin Authentication" in res_admin_login.data
+
+    # 13. Test POST /admin/login
+    res_login = client.post("/admin/login", data={"password": config.ADMIN_PASSWORD})
+    print(f"POST /admin/login -> Status {res_login.status_code}")
+    assert res_login.status_code == 302
+    assert "/admin" in res_login.headers.get("Location")
+
+    # 14. Test GET /admin authenticated
+    res_admin_dash = client.get("/admin")
+    print(f"GET /admin (Auth) -> Status {res_admin_dash.status_code}")
+    assert res_admin_dash.status_code == 200
+    assert b"System Storage &amp; Retention Policy" in res_admin_dash.data or b"System Storage & Retention Policy" in res_admin_dash.data
+    assert b"Case Inventory" in res_admin_dash.data
+
+    # 15. Test GET /job/<id>/download/package when package is pruned (shows clear removed message)
+    pruned_case_dir = config.JOBS_DIR / "test_pruned_case"
+    pruned_case_dir.mkdir(parents=True, exist_ok=True)
+    res_pruned = client.get("/job/test_pruned_case/download/package")
+    print(f"GET /job/test_pruned_case/download/package (Pruned) -> Status {res_pruned.status_code}")
+    assert res_pruned.status_code == 200
+    assert b"File Removed to Free Server Storage" in res_pruned.data
+    assert b"Option A" in res_pruned.data
+    shutil.rmtree(pruned_case_dir, ignore_errors=True)
+
+    print("\nALL FLASK ENDPOINT TESTS (INCLUDING ADMIN PORTAL & RETENTION PRUNING) PASSED COMPLETELY!")
 
 if __name__ == "__main__":
     test_endpoints()

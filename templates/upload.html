@@ -19,6 +19,7 @@
       <div class="nav-links">
         <a href="/" class="nav-link">New Intake</a>
         <a href="#about" class="nav-link">Case Spec</a>
+        <a href="/admin" class="nav-link">Admin Portal</a>
       </div>
     </div>
   </header>
@@ -29,32 +30,6 @@
       <div>
         <strong>Forensic Safety & Security Advisory:</strong>
         <p>This automated engine never opens or executes recovered files. All extracted artifacts are stored in restricted non-executable directories. If test images contain suspicious strings or dummy exploits, your antivirus (e.g., Windows Defender) may quarantine them. It is recommended to add a folder exclusion for the application's <code>jobs/</code> evidence directory during lab operations.</p>
-      </div>
-    </div>
-
-    <!-- Server Storage & Option A Retention Monitor -->
-    <div class="card" style="margin-bottom: 1.5rem; background: #ffffff; border-left: 4px solid var(--accent);">
-      <div class="card-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
-        <div class="card-title" style="font-size: 0.95rem;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-          Server Storage & Retention Policy (Option A Active)
-        </div>
-        <span id="storageBadge" class="badge badge-success">Checking Storage...</span>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
-          <span id="storageSummary">Available Storage: Loading...</span>
-          <span id="storagePercent" style="font-weight: 600; color: var(--primary);">0%</span>
-        </div>
-        <div style="width: 100%; background: #edf2f7; height: 10px; border-radius: 5px; overflow: hidden;">
-          <div id="storageBar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.4s ease;"></div>
-        </div>
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
-          <span>✓ <strong>Mechanism 1:</strong> Auto-purge working replica upon Phase 9</span>
-          <span>✓ <strong>Mechanism 2:</strong> 24h raw image TTL &bull; 72h case TTL</span>
-          <span>✓ <strong>Mechanism 3:</strong> 1.5 GB emergency safeguard</span>
-        </div>
-        <div id="storageAlert" class="alert alert-danger" style="display: none; margin-top: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.8rem;"></div>
       </div>
     </div>
 
@@ -91,6 +66,7 @@
             <input type="file" id="evidence_file" name="evidence_file" style="display: none;" accept=".dd,.img,.raw,.001,.e01,.E01" required>
           </div>
           <div id="fileInfo" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--primary); display: none;"></div>
+          <div id="storageAlert" class="alert alert-danger" style="display: none; margin-top: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.8rem;"></div>
         </div>
 
         <div class="form-group">
@@ -184,35 +160,7 @@
         const res = await fetch('/api/storage-status');
         if (!res.ok) return;
         const data = await res.json();
-        
         serverFreeBytes = (data.free_gb || 0) * (1024 ** 3);
-        const freeGb = (data.free_gb || 0).toFixed(2);
-        const totalGb = (data.total_gb || 0).toFixed(2);
-        const usedGb = (data.used_gb || 0).toFixed(2);
-        const usedPct = data.total_gb > 0 ? Math.round((data.used_gb / data.total_gb) * 100) : 0;
-        
-        const summaryEl = document.getElementById('storageSummary');
-        const percentEl = document.getElementById('storagePercent');
-        const barEl = document.getElementById('storageBar');
-        const badgeEl = document.getElementById('storageBadge');
-        
-        summaryEl.innerHTML = `<strong>${freeGb} GB Free</strong> out of ${totalGb} GB (${usedGb} GB used by OS & Docker)`;
-        percentEl.textContent = `${usedPct}% Used`;
-        barEl.style.width = `${usedPct}%`;
-        
-        if (data.status === 'critically_low' || data.free_gb < 1.5) {
-          badgeEl.className = 'badge badge-danger';
-          badgeEl.textContent = 'CRITICAL (<1.5 GB)';
-          barEl.style.background = '#e53e3e';
-        } else if (data.free_gb < 3.0) {
-          badgeEl.className = 'badge badge-warning';
-          badgeEl.textContent = 'LOW (<3.0 GB)';
-          barEl.style.background = '#dd6b20';
-        } else {
-          badgeEl.className = 'badge badge-success';
-          badgeEl.textContent = 'HEALTHY';
-          barEl.style.background = 'var(--accent)';
-        }
       } catch (e) {
         console.warn('Could not query /api/storage-status:', e);
       }
