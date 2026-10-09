@@ -12,7 +12,7 @@ services:
       # Option A: Automated Storage Optimization & Retention Policies
       - AUTO_CLEAN_WORKING_IMAGE=true
       - RAW_IMAGE_RETENTION_HOURS=24
-      - JOB_RETENTION_HOURS=72
+      - JOB_RETENTION_HOURS=24
       - CLEANUP_INTERVAL_SECONDS=1800
       - MIN_FREE_DISK_GB=1.5
     volumes:

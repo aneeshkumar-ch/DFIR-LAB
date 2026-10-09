@@ -98,6 +98,9 @@ def emergency_purge_oldest_images() -> int:
     """
     Mechanism 3: High-watermark emergency purge.
     Iterates over completed jobs oldest first to free space when disk is low.
+    Stage 1: Purges working replicas and raw uploaded images.
+    Stage 2: If disk remains critically low, purges heavy recovered directories
+             and large case ZIP packages from oldest completed jobs.
     """
     total_freed = 0
     if not config.JOBS_DIR.exists():
@@ -108,13 +111,28 @@ def emergency_purge_oldest_images() -> int:
             [d for d in config.JOBS_DIR.iterdir() if d.is_dir()],
             key=lambda d: d.stat().st_mtime
         )
+        # Stage 1: Purge working copy and raw evidence images
         for jdir in job_dirs:
             total_freed += purge_working_copy(jdir)
             total_freed += purge_original_image(jdir)
             
             free_bytes = shutil.disk_usage(config.JOBS_DIR).free
             if free_bytes >= config.MIN_FREE_DISK_GB * (1024 ** 3):
-                break
+                return total_freed
+
+        # Stage 2: If still under threshold, prune heavy recovered files and ZIP packages
+        for jdir in job_dirs:
+            if (jdir / "reports" / "report.html").exists():
+                rec_dir = jdir / "recovered"
+                if rec_dir.exists():
+                    total_freed += safe_remove_tree(rec_dir)
+                pkg_zip = jdir / "reports" / "case_package.zip"
+                if pkg_zip.exists():
+                    total_freed += safe_remove_file(pkg_zip)
+
+                free_bytes = shutil.disk_usage(config.JOBS_DIR).free
+                if free_bytes >= config.MIN_FREE_DISK_GB * (1024 ** 3):
+                    break
     except Exception as e:
         print(f"Error during emergency storage purge: {e}")
         
@@ -598,13 +616,22 @@ def manual_purge_raw_image(job_id: str):
     freed_working = purge_working_copy(job_dir)
     freed_original = purge_original_image(job_dir)
     total_freed = freed_working + freed_original
+
+    # If raw evidence was already pruned, also reclaim heavy recovered files and ZIP package
+    if total_freed == 0:
+        rec_dir = job_dir / "recovered"
+        if rec_dir.exists():
+            total_freed += safe_remove_tree(rec_dir)
+        pkg_zip = job_dir / "reports" / "case_package.zip"
+        if pkg_zip.exists():
+            total_freed += safe_remove_file(pkg_zip)
     
     return jsonify({
         "success": True,
         "job_id": job_id,
         "bytes_freed": total_freed,
         "freed_str": format_bytes(total_freed),
-        "message": "Raw disk images successfully purged from server storage. Reports and deliverables preserved."
+        "message": "Evidence artifacts successfully purged from server storage. Reports and audit logs preserved."
     })
 
 
