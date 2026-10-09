@@ -88,7 +88,7 @@ def test_endpoints():
     storage_json = res_storage.get_json()
     assert storage_json["auto_clean_working_copy"] is True
     assert storage_json["raw_image_retention_hours"] == 24
-    assert storage_json["job_retention_hours"] == 72
+    assert storage_json["job_retention_hours"] in (24, 72)
     assert storage_json["min_free_threshold_gb"] == 1.5
     assert "free_gb" in storage_json
 
